@@ -3,7 +3,7 @@ import json
 from CreateCorpus import DB_PATH
 
 
-def get_statistics(limit, offset):
+def get_statistics(limit, offset, term, year):
     print("получение терминов из StatResult")
 
     # если LIMIT = None, то по умолчанию ставить 10 (формировать строку для запроса)
@@ -20,14 +20,37 @@ def get_statistics(limit, offset):
     else:
         offset_str = f'OFFSET {offset}'
 
+    if term != None or year != None:
+        where_str = "WHERE"
+        if term != None and year != None:
+            and_str = "AND"
+        else:
+            and_str = ""
+    else:
+        where_str = ""
+        and_str = ""
+    # если term = None, то формировать строку без  отбора по полю StatResult.Term
+    if term == None:
+        term_str = ''
+    else:
+        term_str = f"Term like '%{term}%' "
+
+    # если year = None, то формировать строку без  отбора по полю StatResult.Term
+    if year == None:
+        year_str = ''
+    else:
+        year_str = f"year = {year}"
+
     # обратить внимание на путь, если проблемы с соединением к бд
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
+    # запрос для вывода общего кол-ва записей
     cursor.execute(f"SELECT count(*) from StatResult")
-    count = cursor.fetchall()[0][0]
+    total_count = cursor.fetchall()[0][0]
 
-    cursor.execute(f"SELECT Term, StatNumber FROM StatResult {limit_str} {offset_str}")
+    # основной запрос на получение данных
+    cursor.execute(f"SELECT Term, StatNumber, Year FROM StatResult {where_str} {term_str} {and_str} {year_str} ORDER by Year ASC, StatNumber DESC {limit_str} {offset_str}")
 
     ans = cursor.fetchall()
 
@@ -37,7 +60,7 @@ def get_statistics(limit, offset):
         "meta": {
             'limit': limit,
             'offset': offset,
-            'total_count': count
+            'total_count': total_count
         },
         "data": list()
     }
@@ -46,7 +69,8 @@ def get_statistics(limit, offset):
         ans_dct['data'].append(
             {
             'termName': elem[0],
-            'numOfAppearance': elem[1]
+            'numOfAppearance': elem[1],
+            'year': elem[2]
             }
         ) 
 

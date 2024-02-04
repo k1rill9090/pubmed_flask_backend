@@ -32,14 +32,23 @@ def checkDate(param: str) -> bool:
     except:
         return False
 
-def checkQuerryParams(args, limit, offset):
-    '''Функция, которая проверят корректность ввода querry параметров для методов GET /articles и /terms'''
+def checkQuerryParams(args, limit, offset, route=""):
+    '''Функция, которая проверят корректность ввода querry параметров для методов GET /articles, /terms и /statistics
+    параметры:
+    args - querry-параметры, которые указываются при обращении к роуту
+    limit и offset вынесены в отдельные параметры для доп. проверки
+    route - название роута, к которому идет обращение (для роута /statistics прописана доп. логика)'''
      # готовим список ошибок
     errors = []
     for i in args:
+        # если вызывается метод GET /statistics, то для него пропускать параметр term
+        if route == 'statistics':
+            if i == 'term' or i == 'year':
+                continue
         if (i == 'limit' or i == 'offset'):
             if not(checkInt(args[i]) and int(args[i]) >= 0):
                 errors.append(f"Параметр {i} должен быть целым числом")
+
         else:
             errors.append(f"Неизвестный параметр {i}")
     # проверка на запись одного поля offset
@@ -186,14 +195,16 @@ def getStatistics():
     args = request.args
     limit = args.get('limit', None)
     offset = args.get('offset', None)
+    term = args.get('term', None)
+    year = args.get('year', None)
    
-    errList = checkQuerryParams(args, limit, offset)
+    errList = checkQuerryParams(args, limit, offset, route='statistics')
     # Если список ошибок непустой, то выдаем 400 ошибку и отправляем в response этот список 
     if len(errList) > 0:
         return json.dumps({'errors': errList}, ensure_ascii=False), 400, {'content-type':'application/json'}
     # если все ок, то возвращаем ответ с данными из бд
     print('формирование json Ответа')
-    ans = db_get_statistics.get_statistics(limit=limit, offset=offset)
+    ans = db_get_statistics.get_statistics(limit=limit, offset=offset, term=term, year=year)
     print('json готов')
     return ans, 200, {'content-type':'application/json'}
 
